@@ -32,21 +32,19 @@ async def check_membership(app, user_id):
         m2 = await app.bot.get_chat_member(CHANNEL_2, user_id)
 
         return (
-            m1.status in ["member", "administrator", "creator"]
-            and
+            m1.status in ["member", "administrator", "creator"] and
             m2.status in ["member", "administrator", "creator"]
         )
     except:
         return False
 
 
+# ================= USER START =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     ADMIN_NAMES[user.id] = user.username or "NoUsername"
 
-    joined = await check_membership(context.application, user.id)
-
-    if joined:
+    if await check_membership(context.application, user.id):
         return await update.message.reply_text("🤖 Bot is alive — drop your queries")
 
     keyboard = [
@@ -54,41 +52,34 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("➤ Join Channel", url="https://t.me/moviesnseries4k"),
             InlineKeyboardButton("➤ Must Join", url="https://t.me/GxNS_OFFICIAL")
         ],
-        [
-            InlineKeyboardButton("✅ I Joined", callback_data="verify_join")
-        ]
+        [InlineKeyboardButton("✅ I Joined", callback_data="verify_join")]
     ]
 
     await update.message.reply_text(
-        "🔔 Please join the channels to connect with admins\n\n"
-        "After joining, click *I Joined* 👇",
+        "🔔 Please join the channels then click *I Joined* 👇",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
+# ================= VERIFY JOIN =================
 async def verify(update, context):
-    query = update.callback_query
-    await query.answer()
+    q = update.callback_query
+    await q.answer()
 
-    user_id = query.from_user.id
-    joined = await check_membership(context.application, user_id)
-
-    if joined:
-        await query.edit_message_text(
-            "🎉 Successfully verified!\n\n"
-            "You are now free to drop your queries here — admins will reply soon 💬"
-        )
+    if await check_membership(context.application, q.from_user.id):
+        return await q.edit_message_text("🎉 Verified! You may now chat.")
     else:
-        await query.edit_message_text(
-            "⚠️ Please join *ALL* channels first",
-            parse_mode="Markdown"
-        )
+        return await q.edit_message_text("⚠️ Please join ALL channels first.")
 
 
+# ================= OWNER COMMANDS =================
 async def promote(update, context):
     if update.effective_user.id != OWNER_ID:
         return
+
+    if len(context.args) < 1:
+        return await update.message.reply_text("Usage: /promote USER_ID")
 
     uid = int(context.args[0])
     ADMINS.add(uid)
@@ -99,6 +90,9 @@ async def promote(update, context):
 async def demote(update, context):
     if update.effective_user.id != OWNER_ID:
         return
+
+    if len(context.args) < 1:
+        return await update.message.reply_text("Usage: /demote USER_ID")
 
     uid = int(context.args[0])
     ADMINS.discard(uid)
@@ -112,23 +106,24 @@ async def adminlist(update, context):
 
     text = "👑 *Admin List*\n\n"
     for uid in ADMINS:
-        username = ADMIN_NAMES.get(uid, "Unknown")
-        text += f"• `{uid}` — @{username}\n"
-
-    text += f"\nTotal admins: *{len(ADMINS)}*"
+        text += f"• `{uid}`\n"
 
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
+# ================= ADMIN CONNECTION =================
 async def connect(update, context):
     admin = update.effective_user.id
     if admin not in ADMINS:
         return
 
+    if len(context.args) < 1:
+        return await update.message.reply_text("Usage: /connect USER_ID")
+
     user_id = int(context.args[0])
     ACTIVE_CHATS[user_id] = admin
 
-    await update.message.reply_text(f"🔗 Connected `{user_id}`")
+    await update.message.reply_text(f"🔗 Connected to `{user_id}`", parse_mode="Markdown")
 
 
 async def disconnect(update, context):
@@ -136,10 +131,13 @@ async def disconnect(update, context):
     if admin not in ADMINS:
         return
 
+    if len(context.args) < 1:
+        return await update.message.reply_text("Usage: /disconnect USER_ID")
+
     user_id = int(context.args[0])
     ACTIVE_CHATS.pop(user_id, None)
 
-    await update.message.reply_text(f"❌ Disconnected `{user_id}`")
+    await update.message.reply_text(f"❌ Disconnected `{user_id}`", parse_mode="Markdown")
 
 
 async def reply(update, context):
@@ -147,35 +145,45 @@ async def reply(update, context):
     if admin not in ADMINS:
         return
 
+    if len(context.args) < 2:
+        return await update.message.reply_text("Usage: /reply USER_ID message")
+
     user_id = int(context.args[0])
     message = " ".join(context.args[1:])
 
     await context.bot.send_message(user_id, f"💬 Admin Reply:\n\n{message}")
 
 
+# ================= USER → ADMIN FORWARD =================
 async def forward_user(update, context):
     user = update.effective_user
-    ADMIN_NAMES[user.id] = user.username or "NoUsername"
 
     if not await check_membership(context.application, user.id):
         return
 
+    ADMIN_NAMES[user.id] = user.username or "NoUsername"
+
+    text = update.message.text or ""
     caption = update.message.caption or ""
-    header = (
+
+    info = (
         "📩 *New Query*\n\n"
-        f"👤 `{user.first_name or ''}`\n"
+        f"👤 `{user.first_name}`\n"
         f"🔗 @{user.username or 'None'}\n"
         f"🆔 `{user.id}`\n\n"
     )
 
     for admin in ADMINS:
-        msg = update.message
-        if msg.text:
-            await context.bot.send_message(admin, header + msg.text, parse_mode="Markdown")
-        else:
-            await msg.copy(admin, caption=header + caption, parse_mode="Markdown")
+        try:
+            if text:
+                await context.bot.send_message(admin, info + text, parse_mode="Markdown")
+            else:
+                await update.message.copy(admin, caption=info + caption)
+        except:
+            pass
 
 
+# ================= RUN BOT =================
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -192,7 +200,7 @@ def main():
 
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, forward_user))
 
-    print("BOT FILE STARTED")
+    print("BOT ONLINE")
     app.run_polling()
 
 
