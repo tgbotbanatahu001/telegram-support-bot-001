@@ -15,16 +15,16 @@ from telegram.request import HTTPXRequest
 
 
 # ================= CONFIG =================
-BOT_TOKEN = "7948885160:AAGbjiBKnFKY0mIjsZ3tkBmDzOk9ONe-BSw"
+BOT_TOKEN = "7948885160:AAGbjiBKnFKY0mIjsZ3tkBmDzOk9ONe-BSw"   # <-- keep your token
 
 CHANNEL_1 = "@moviesnseries4k"
 CHANNEL_2 = "@GxNS_OFFICIAL"
 
 OWNER_ID = 8512543648      # ONLY ONE OWNER
-ADMINS = {OWNER_ID}       # owner is always admin
+ADMINS = {OWNER_ID}        # owner is always admin
 
-ACTIVE_CHATS = {}         # user_id -> admin_id
-ADMIN_NAMES = {}          # store usernames for /adminlist
+ACTIVE_CHATS = {}          # user_id -> admin_id
+ADMIN_NAMES = {}           # store usernames for /adminlist
 # ==========================================
 
 
@@ -234,7 +234,7 @@ async def forward_user(update, context):
 
 # =============== MAIN ==================
 
-def main():
+async def main():
     request = HTTPXRequest()
 
     app = ApplicationBuilder().token(BOT_TOKEN).request(request).build()
@@ -256,8 +256,9 @@ def main():
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, forward_user))
 
     print("BOT FILE STARTED")
-    app.run_polling(drop_pending_updates=True)
+    await app.run_polling(drop_pending_updates=True)
 
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
