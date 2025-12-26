@@ -1,7 +1,7 @@
 from telegram import (
     Update,
     InlineKeyboardButton,
-    InlineKeyboardMarkup
+    InlineKeyboardMarkup,
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -9,7 +9,7 @@ from telegram.ext import (
     ContextTypes,
     CallbackQueryHandler,
     MessageHandler,
-    filters
+    filters,
 )
 
 # ================= CONFIG =================
@@ -26,21 +26,24 @@ ADMIN_NAMES = {}
 # ==========================================
 
 
-async def check_membership(app, user_id):
+async def check_membership(app, user_id: int) -> bool:
     try:
         m1 = await app.bot.get_chat_member(CHANNEL_1, user_id)
         m2 = await app.bot.get_chat_member(CHANNEL_2, user_id)
 
         return (
-            m1.status in ["member", "administrator", "creator"] and
-            m2.status in ["member", "administrator", "creator"]
+            m1.status in ["member", "administrator", "creator"]
+            and m2.status in ["member", "administrator", "creator"]
         )
-    except:
+    except Exception:
         return False
 
 
 # ================= USER START =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
+
     user = update.effective_user
     ADMIN_NAMES[user.id] = user.username or "NoUsername"
 
@@ -50,20 +53,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [
             InlineKeyboardButton("➤ Join Channel", url="https://t.me/moviesnseries4k"),
-            InlineKeyboardButton("➤ Must Join", url="https://t.me/GxNS_OFFICIAL")
+            InlineKeyboardButton("➤ Must Join", url="https://t.me/GxNS_OFFICIAL"),
         ],
-        [InlineKeyboardButton("✅ I Joined", callback_data="verify_join")]
+        [InlineKeyboardButton("✅ I Joined", callback_data="verify_join")],
     ]
 
     await update.message.reply_text(
         "🔔 Please join the channels then click *I Joined* 👇",
         parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
 
 # ================= VERIFY JOIN =================
-async def verify(update, context):
+async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
 
@@ -156,6 +159,9 @@ async def reply(update, context):
 
 # ================= USER → ADMIN FORWARD =================
 async def forward_user(update, context):
+    if not update.message:
+        return
+
     user = update.effective_user
 
     if not await check_membership(context.application, user.id):
@@ -163,8 +169,8 @@ async def forward_user(update, context):
 
     ADMIN_NAMES[user.id] = user.username or "NoUsername"
 
-    text = update.message.text or ""
-    caption = update.message.caption or ""
+    text = update.message.text
+    caption = update.message.caption
 
     info = (
         "📩 *New Query*\n\n"
@@ -178,8 +184,8 @@ async def forward_user(update, context):
             if text:
                 await context.bot.send_message(admin, info + text, parse_mode="Markdown")
             else:
-                await update.message.copy(admin, caption=info + caption)
-        except:
+                await update.message.copy(admin, caption=(info + (caption or "")))
+        except Exception:
             pass
 
 
