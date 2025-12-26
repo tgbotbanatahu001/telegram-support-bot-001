@@ -11,20 +11,18 @@ from telegram.ext import (
     MessageHandler,
     filters
 )
-from telegram.request import HTTPXRequest
-
 
 # ================= CONFIG =================
-BOT_TOKEN = "7948885160:AAGbjiBKnFKY0mIjsZ3tkBmDzOk9ONe-BSw"   # <-- keep your token
+BOT_TOKEN = "7948885160:AAGbjiBKnFKY0mIjsZ3tkBmDzOk9ONe-BSw"
 
 CHANNEL_1 = "@moviesnseries4k"
 CHANNEL_2 = "@GxNS_OFFICIAL"
 
-OWNER_ID = 8512543648      # ONLY ONE OWNER
-ADMINS = {OWNER_ID}        # owner is always admin
+OWNER_ID = 8512543648
+ADMINS = {OWNER_ID}
 
-ACTIVE_CHATS = {}          # user_id -> admin_id
-ADMIN_NAMES = {}           # store usernames for /adminlist
+ACTIVE_CHATS = {}
+ADMIN_NAMES = {}
 # ==========================================
 
 
@@ -41,8 +39,6 @@ async def check_membership(app, user_id):
     except:
         return False
 
-
-# =============== /start ==================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -71,8 +67,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ======== VERIFY JOIN BUTTON =========
-
 async def verify(update, context):
     query = update.callback_query
     await query.answer()
@@ -92,32 +86,24 @@ async def verify(update, context):
         )
 
 
-# ========== PROMOTE / DEMOTE / ADMINLIST ==========
-
 async def promote(update, context):
     if update.effective_user.id != OWNER_ID:
         return
 
-    if not context.args:
-        return await update.message.reply_text("Usage: /promote USER_ID")
-
     uid = int(context.args[0])
     ADMINS.add(uid)
 
-    await update.message.reply_text(f"⭐ Promoted to admin: `{uid}`", parse_mode="Markdown")
+    await update.message.reply_text(f"⭐ Promoted `{uid}`", parse_mode="Markdown")
 
 
 async def demote(update, context):
     if update.effective_user.id != OWNER_ID:
         return
 
-    if not context.args:
-        return await update.message.reply_text("Usage: /demote USER_ID")
-
     uid = int(context.args[0])
     ADMINS.discard(uid)
 
-    await update.message.reply_text(f"⬇️ Demoted: `{uid}`", parse_mode="Markdown")
+    await update.message.reply_text(f"⬇️ Demoted `{uid}`", parse_mode="Markdown")
 
 
 async def adminlist(update, context):
@@ -125,7 +111,6 @@ async def adminlist(update, context):
         return
 
     text = "👑 *Admin List*\n\n"
-
     for uid in ADMINS:
         username = ADMIN_NAMES.get(uid, "Unknown")
         text += f"• `{uid}` — @{username}\n"
@@ -135,20 +120,15 @@ async def adminlist(update, context):
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
-# ========== CONNECT / DISCONNECT ==========
-
 async def connect(update, context):
     admin = update.effective_user.id
     if admin not in ADMINS:
         return
 
-    if not context.args:
-        return await update.message.reply_text("Usage: /connect USER_ID")
-
     user_id = int(context.args[0])
     ACTIVE_CHATS[user_id] = admin
 
-    await update.message.reply_text(f"🔗 Connected to `{user_id}`", parse_mode="Markdown")
+    await update.message.reply_text(f"🔗 Connected `{user_id}`")
 
 
 async def disconnect(update, context):
@@ -156,55 +136,22 @@ async def disconnect(update, context):
     if admin not in ADMINS:
         return
 
-    if not context.args:
-        return await update.message.reply_text("Usage: /disconnect USER_ID")
-
     user_id = int(context.args[0])
+    ACTIVE_CHATS.pop(user_id, None)
 
-    if user_id in ACTIVE_CHATS:
-        del ACTIVE_CHATS[user_id]
+    await update.message.reply_text(f"❌ Disconnected `{user_id}`")
 
-    await update.message.reply_text(f"❌ Disconnected from `{user_id}`", parse_mode="Markdown")
-
-
-# ========== REPLY COMMAND ==========
 
 async def reply(update, context):
     admin = update.effective_user.id
     if admin not in ADMINS:
         return
 
-    if len(context.args) < 2:
-        return await update.message.reply_text("Usage: /reply USER_ID message")
-
     user_id = int(context.args[0])
     message = " ".join(context.args[1:])
 
-    await context.bot.send_message(
-        chat_id=user_id,
-        text=f"💬 *Admin Reply:*\n\n{message}",
-        parse_mode="Markdown"
-    )
+    await context.bot.send_message(user_id, f"💬 Admin Reply:\n\n{message}")
 
-
-# ========== COMMAND LIST ==========
-
-async def commandlist(update, context):
-    await update.message.reply_text(
-        "✨ Public Commands (Everyone)\n"
-        "/start — Check if the bot is online and running 🚀\n\n"
-        "👑 Owner-Only Commands\n"
-        "/promote USER_ID — Promote a user to admin ⭐\n"
-        "/demote USER_ID — Remove admin rights and set back to user 🔽\n"
-        "/adminlist — View the list of all admins 📜\n\n"
-        "🛡️ Admin Commands\n"
-        "/connect USER_ID — Connect with a user for support 🤝\n"
-        "/disconnect USER_ID — End the connection with a user ❌\n"
-        "/reply USER_ID message text — Reply to users (alternative reply method 💬)"
-    )
-
-
-# ======= USER → ADMIN FORWARD =======
 
 async def forward_user(update, context):
     user = update.effective_user
@@ -222,22 +169,15 @@ async def forward_user(update, context):
     )
 
     for admin in ADMINS:
-        try:
-            msg = update.message
-            if msg.text:
-                await context.bot.send_message(admin, header + msg.text, parse_mode="Markdown")
-            else:
-                await msg.copy(admin, caption=header + caption, parse_mode="Markdown")
-        except:
-            pass
+        msg = update.message
+        if msg.text:
+            await context.bot.send_message(admin, header + msg.text, parse_mode="Markdown")
+        else:
+            await msg.copy(admin, caption=header + caption, parse_mode="Markdown")
 
 
-# =============== MAIN ==================
-
-async def main():
-    request = HTTPXRequest()
-
-    app = ApplicationBuilder().token(BOT_TOKEN).request(request).build()
+def main():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(verify, pattern="verify_join"))
@@ -248,17 +188,13 @@ async def main():
 
     app.add_handler(CommandHandler("connect", connect))
     app.add_handler(CommandHandler("disconnect", disconnect))
-
     app.add_handler(CommandHandler("reply", reply))
-
-    app.add_handler(CommandHandler("commandlist", commandlist))
 
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, forward_user))
 
     print("BOT FILE STARTED")
-    await app.run_polling(drop_pending_updates=True)
+    app.run_polling()
 
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()
